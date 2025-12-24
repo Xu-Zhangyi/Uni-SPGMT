@@ -75,39 +75,6 @@ def get_train_label(re_train_node, re_train_coor, input_dis_matrix, count):
     return node_list, coor_list, traj_idx, traj_dis
 
 
-def select_subgraph_by_degree(dis_matrix, node_list, coor_list, k, l):
-    missing_dis = -1
-    # degree is count of entries that are not the missing marker, excluding self-loop
-    deg = np.sum(dis_matrix != missing_dis, axis=1) - 1
-    valid_idx = np.where(deg > l)[0]
-    if len(valid_idx) == 0:
-        return node_list, coor_list, dis_matrix
-    # sort by degree descending
-    sorted_idx = valid_idx[np.argsort(deg[valid_idx])[::-1]]
-    pick = sorted_idx[:k] if len(sorted_idx) >= k else sorted_idx
-    # induce subgraph
-    pick_col = pick.reshape(1, -1)
-    pick_row = pick.reshape(-1, 1)
-    sub_dis = dis_matrix[pick_row, pick_col]
-    sub_node = node_list[pick]
-    sub_coor = coor_list[pick]
-    # ensure within subgraph each node has degree > l
-    sub_deg = np.sum(sub_dis != missing_dis, axis=1) - 1
-    # iteratively remove nodes not meeting degree until all satisfy or cannot
-    while True:
-        bad = np.where(sub_deg <= l)[0]
-        if len(bad) == 0:
-            break
-        # remove bad nodes
-        keep = np.array([i for i in range(len(sub_node)) if i not in set(bad)])
-        if len(keep) == 0:
-            break
-        sub_dis = sub_dis[keep.reshape(-1, 1), keep.reshape(1, -1)]
-        sub_node = sub_node[keep]
-        sub_coor = sub_coor[keep]
-        sub_deg = np.sum(sub_dis != missing_dis, axis=1) - 1
-    return sub_dis, sub_node, sub_coor
-
 
 all_node_list_int = np.load(config.shuffle_node_file, allow_pickle=True)
 all_coor_list_int = np.load(config.shuffle_coor_file, allow_pickle=True)
@@ -151,15 +118,11 @@ re_train_dis_matrix[re_train_dis_matrix < 0] = -1
 
 
 if config.use_less_traj:
-    if config.distance_type == 'LCRS':
-        re_train_dis_matrix, re_train_node, re_train_coor = select_subgraph_by_degree(
-            re_train_dis_matrix, re_train_node, re_train_coor, 500, config.pos_num*1.5)
-    else:
-        re_train_node = re_train_node[:500]
-        re_train_coor = re_train_coor[:500]
-        re_train_dis_matrix = re_train_dis_matrix[:500, :500]
-        re_train_node, re_train_coor, re_train_dis_matrix = re_matrix(
-            re_train_node, re_train_coor, re_train_dis_matrix, config.pos_num*2)
+    re_train_node = re_train_node[:500]
+    re_train_coor = re_train_coor[:500]
+    re_train_dis_matrix = re_train_dis_matrix[:500, :500]
+    re_train_node, re_train_coor, re_train_dis_matrix = re_matrix(
+        re_train_node, re_train_coor, re_train_dis_matrix, config.pos_num*2)
 
 re_node_list, re_coor_list, traj_idx, traj_dis = get_train_label(re_train_node,
                                                                  re_train_coor,
